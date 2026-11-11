@@ -105,9 +105,9 @@ The guarantee belongs to the method, the behavior belongs to a concrete operatio
 - Attachment limits: count, total size, and the real size of the received bytes.
 - Whether an address is deliverable.
 
-**Omitted, empty, and null values.** Omitted optional lists mean empty lists. Empty lists are allowed if another list has an address. Explicit `null` in a request is rejected with `422`. In responses an unset `sentAt` is an explicit `null`. With `PUT`, omitted optional properties are reset to empty, so the result is always the complete representation and always valid.
+**Omitted, empty, and null values.** Omitted optional lists mean empty lists. Empty lists are allowed if another list has an address. Explicit `null` in a request is rejected with `400`. In responses an unset `sentAt` is an explicit `null`. With `PUT`, omitted optional properties are reset to empty, so the result is always the complete representation and always valid.
 
-**Server-controlled fields in requests.** The request schemas have `additionalProperties: false`, and the server rejects such requests with `422` and a pointer to the property. It does not ignore them silently, so a client notices its mistake. `readOnly` annotations are not used for enforcement.
+**Server-controlled fields in requests.** The request schemas have `additionalProperties: false`, and the server rejects such requests with `400`, because the body cannot be read into the request schema. It does not ignore them silently, so a client notices its mistake. `readOnly` annotations are not used for enforcement.
 
 **Attachment metadata** has `id`, `fileName`, `mimeType`, and `size` in bytes. The storage path is never exposed.
 
@@ -163,10 +163,10 @@ All errors use the schema `ProblemDetail` (`application/problem+json`, based on 
 
 | Case | Status | Reason |
 |---|---|---|
-| Malformed JSON | 400 | The request cannot be parsed. |
+| Malformed JSON, wrong types, missing required property, explicit `null`, unknown or server-controlled property | 400 | The body cannot be read into the request schema. |
 | Invalid pagination or filter value | 400 | A malformed request parameter. |
 | Unsupported request media type | 415 | The body type is not `application/json` (or `multipart/form-data` for uploads). |
-| Missing recipient, empty subject or content, unknown or server-controlled property | 422 | Well-formed JSON that violates schema or business rules. |
+| Missing recipient, blank subject or content, invalid address, too many entries, value too long | 422 | The body was read, but its values violate a rule. |
 | Unknown email | 404 | The resource does not exist. |
 | Email of another user | 404 | Same answer as an unknown email, so the API does not reveal that it exists. |
 | Modify a `sent` email | 409 | Valid request, but the current state forbids it. |
@@ -184,7 +184,7 @@ All errors use the schema `ProblemDetail` (`application/problem+json`, based on 
 
 - Repeated `DELETE` requests need not return the same status. Idempotency means the same effect on the server. The first delete answers `204`, the second answers `404`, and the server state (no email) is the same.
 - `400`: the request is syntactically wrong. `404`: the resource is unknown. `405`: the method is not supported for this path. `409`: the request conflicts with the current state. `415`: the request media type is not supported. `422`: the content is well-formed but semantically invalid.
-- Our API uses all six, as in the table above, and additionally `500` for unexpected server errors. We keep `400` for syntax and query parameters and `422` for body validation, so clients can tell "could not be understood" from "understood but not acceptable".
+- Our API uses all six, as in the table above, and additionally `500` for unexpected server errors. The line between them: `400` when the request cannot be read into the request schema (syntax, types, missing or unknown properties, query parameters), `422` when it was read but its values break a rule. Clients can tell "could not be understood" from "understood but not acceptable", and the server follows the same line: everything the JSON mapping rejects is `400`, everything the validation rejects is `422`.
 
 ## 8. Attachment Upload and Download
 

@@ -1,5 +1,6 @@
 package de.thm.mni.mailbackend.mail.api
 
+import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -26,11 +27,14 @@ class EmailRestApi {
      * A `ResponseEntity` is used because the API contract requires a `Location` header,
      * which cannot be set with annotations alone.
      *
+     * `@Valid` triggers the validation annotations of [EmailCreate]. An invalid request body
+     * never reaches this method; it is answered by the error handler.
+     *
      * @param request writable data of the new email
      * @return `201 Created` with the created email and a `Location` header pointing to it
      */
     @PostMapping
-    fun createEmail(@RequestBody request: EmailCreate): ResponseEntity<EmailDetail> {
+    fun createEmail(@Valid @RequestBody request: EmailCreate): ResponseEntity<EmailDetail> {
         val now = OffsetDateTime.now().truncatedTo(ChronoUnit.SECONDS)
         val email = EmailDetail(
             id = UUID.randomUUID(),

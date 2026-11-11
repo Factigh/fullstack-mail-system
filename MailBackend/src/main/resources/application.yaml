@@ -1,6 +1,12 @@
 spring:
   application:
     name: MailBackend
+  mvc:
+    problemdetails:
+      enabled: true
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
 
 server:
   port: 8080

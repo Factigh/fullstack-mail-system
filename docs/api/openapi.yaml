@@ -26,11 +26,11 @@ info:
     * **Writable and server-controlled data:** Clients can only write `from`, `to`, `cc`, `bcc`,
       `replyTo`, `subject`, and `content`. `id`, `createdAt`, `updatedAt`, `sentAt`, `status`,
       `source`, and `attachments` are controlled by the server. A request that contains any of them
-      (or any other unknown property) is rejected with `422 Unprocessable Entity`; it is never
-      silently ignored.
+      (or any other unknown property) is rejected with `400 Bad Request`, because the body cannot
+      be read into the request schema; it is never silently ignored.
     * **Omitted, empty, and null values:** Optional recipient lists that are omitted are treated as
       empty lists. Empty lists are allowed as long as at least one of `to`, `cc`, `bcc` is not
-      empty. Explicit `null` is never accepted in requests (`422`).
+      empty. Explicit `null` is never accepted in requests (`400`).
     * **Updates** use `PUT` with the complete writable representation. Properties that are omitted
       are reset to their empty value. `PATCH` is not supported (`405`).
     * **Unsupported HTTP methods** on an existing path are answered with `405 Method Not Allowed`
@@ -40,14 +40,14 @@ info:
 
     | Status | Meaning in this API |
     |---|---|
-    | 400 | The request cannot be understood: malformed JSON, invalid query parameter (pagination or filter). |
+    | 400 | The request cannot be read: malformed JSON, wrong types, missing required properties, explicit `null`, unknown or server-controlled properties, or an invalid query parameter (pagination or filter). |
     | 401 | Missing or invalid token. |
     | 404 | Unknown resource, or a resource of another user. |
     | 405 | HTTP method not supported for the path. |
     | 409 | The request is valid but conflicts with the current state, for example the email is already sent. |
     | 413 | An uploaded file or the attachments of an email exceed the size limit. |
     | 415 | Unsupported request media type. |
-    | 422 | The request is well-formed JSON but violates the schema or a business rule. |
+    | 422 | The request body was read, but its values violate a rule: no recipient, blank subject or content, invalid address, too many entries, values too long. |
     | 500 | Unexpected error in the server. The response never exposes internal details such as stack traces. |
 
     ## Processing model of sending
@@ -1007,7 +1007,9 @@ components:
             $ref: '#/components/schemas/FieldError'
   responses:
     BadRequest:
-      description: The request cannot be understood, for example malformed JSON or an invalid query parameter.
+      description: |
+        The request cannot be read: malformed JSON, wrong types, missing required properties, explicit
+        `null`, unknown or server-controlled properties, or an invalid query parameter.
       content:
         application/problem+json:
           schema:
@@ -1080,7 +1082,7 @@ components:
           schema:
             $ref: '#/components/schemas/ProblemDetail'
     UnprocessableEntity:
-      description: The request is well-formed but violates the schema or a business rule.
+      description: The request body was read, but its values violate validation or business rules.
       content:
         application/problem+json:
           schema:
