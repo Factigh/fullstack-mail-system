@@ -50,8 +50,7 @@ workspace "Mail System" "Three-tier web mail system with layered Angular client 
 
                 group "Repository Layer" {
                     userRepository = component "User Repository" "Persists users." "Spring Data JPA"
-                    emailRepository = component "Email Repository" "Persists emails and their metadata." "Spring Data JPA"
-                    attachmentRepository = component "Attachment Repository" "Persists attachment metadata." "Spring Data JPA"
+                    emailRepository = component "Email Repository" "Persists emails with their metadata and attachment metadata." "Spring Data JPA"
                     attachmentFileStore = component "Attachment File Store" "Reads and writes attachment binaries in the configured folder." "Java NIO"
                     mailGateway = component "Mail Transmission Gateway" "Hides the external mail server behind an interface. Implemented by a mock." "Spring Component"
                 }
@@ -98,14 +97,13 @@ workspace "Mail System" "Three-tier web mail system with layered Angular client 
         transmissionController -> transmissionService "Delegates to"
         authService -> userRepository "Reads users"
         emailService -> emailRepository "Reads and writes emails"
-        attachmentService -> attachmentRepository "Reads and writes attachment metadata"
+        emailService -> attachmentFileStore "Deletes attachment files with the email"
         attachmentService -> attachmentFileStore "Reads and writes binaries"
-        attachmentService -> emailRepository "Checks email status"
+        attachmentService -> emailRepository "Reads and writes emails and their attachment metadata"
         transmissionService -> emailRepository "Reads emails and updates status"
         transmissionService -> mailGateway "Sends through"
         userRepository -> database "Reads and writes" "JDBC"
         emailRepository -> database "Reads and writes" "JDBC"
-        attachmentRepository -> database "Reads and writes" "JDBC"
         attachmentFileStore -> fileStorage "Reads and writes" "File I/O"
         mailGateway -> mailServer "Sends emails" "Mocked interface"
 

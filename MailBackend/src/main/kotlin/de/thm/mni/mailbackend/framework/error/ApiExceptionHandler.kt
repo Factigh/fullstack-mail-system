@@ -31,7 +31,11 @@ import java.net.URI
  *   per invalid property in `errors`.
  * - A [NotFoundException] of the business layer answers `404`.
  * - A [ConflictException] of the business layer answers `409`.
+ * - A [ContentTooLargeException] of the business layer answers `413`.
+ * - A [RuleViolationException] of the business layer answers `422`.
  * - Every other exception answers `500` without internal details and is logged.
+ *
+ * All responses get the same titles, see [createResponseEntity].
  */
 @RestControllerAdvice
 class ApiExceptionHandler : ResponseEntityExceptionHandler() {
@@ -164,6 +168,64 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
     }
 
     /**
+     * Handles broken business rules, for example too many attachments.
+     */
+    @ExceptionHandler(RuleViolationException::class)
+    fun handleRuleViolation(ex: RuleViolationException, request: WebRequest): ResponseEntity<Any>? {
+        log.info("Rule violation at {}: {}", path(request), ex.message)
+
+        val problem = createProblem(
+            UNPROCESSABLE_ENTITY,
+            "UnprocessableEntity",
+            ex.message ?: "The request violates a business rule.",
+            request,
+        )
+        return handleExceptionInternal(ex, problem, HttpHeaders(), UNPROCESSABLE_ENTITY, request)
+    }
+
+    /**
+     * Handles uploaded content that exceeds a size limit of the business layer.
+     * Files that exceed the multipart limits of `application.yaml` are rejected earlier by
+     * Spring and also answer `413`.
+     */
+    @ExceptionHandler(ContentTooLargeException::class)
+    fun handleContentTooLarge(ex: ContentTooLargeException, request: WebRequest): ResponseEntity<Any>? {
+        log.info("Content too large at {}: {}", path(request), ex.message)
+
+        val problem = createProblem(
+            CONTENT_TOO_LARGE,
+            "PayloadTooLarge",
+            ex.message ?: "The uploaded content is too large.",
+            request,
+        )
+        return handleExceptionInternal(ex, problem, HttpHeaders(), CONTENT_TOO_LARGE, request)
+    }
+
+    /**
+     * Last step of every handler, including the standard handlers of Spring. At this point the
+     * ProblemDetail is complete, also for errors where Spring creates it itself (for example
+     * `405` or `415`).
+     *
+     * It makes all error responses look the same: the title follows the names in `openapi.yaml`
+     * (for example `UnsupportedMediaType` instead of `Unsupported Media Type`), and `instance`
+     * is always the path of the request.
+     */
+    override fun createResponseEntity(
+        body: Any?,
+        headers: HttpHeaders,
+        statusCode: HttpStatusCode,
+        request: WebRequest,
+    ): ResponseEntity<Any> {
+        if (body is ProblemDetail) {
+            TITLES[statusCode.value()]?.let { body.title = it }
+            if (body.instance == null) {
+                body.instance = URI.create(path(request))
+            }
+        }
+        return super.createResponseEntity(body, headers, statusCode, request)
+    }
+
+    /**
      * Handles every exception that no other handler covers. The client only receives a general
      * message, the details are written to the log.
      */
@@ -196,5 +258,19 @@ class ApiExceptionHandler : ResponseEntityExceptionHandler() {
 
     private companion object {
         val UNPROCESSABLE_ENTITY: HttpStatusCode = HttpStatusCode.valueOf(422)
+        val CONTENT_TOO_LARGE: HttpStatusCode = HttpStatusCode.valueOf(413)
+
+        /** Titles of the error responses per status code, as used in `openapi.yaml`. */
+        val TITLES = mapOf(
+            400 to "BadRequest",
+            401 to "Unauthorized",
+            404 to "NotFound",
+            405 to "MethodNotAllowed",
+            409 to "Conflict",
+            413 to "PayloadTooLarge",
+            415 to "UnsupportedMediaType",
+            422 to "UnprocessableEntity",
+            500 to "InternalServerError",
+        )
     }
 }

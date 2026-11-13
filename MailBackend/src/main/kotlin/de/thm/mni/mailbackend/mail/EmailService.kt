@@ -1,22 +1,25 @@
 package de.thm.mni.mailbackend.mail
 
 import de.thm.mni.mailbackend.utils.PageResult
+import de.thm.mni.mailbackend.utils.currentTime
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import java.time.OffsetDateTime
-import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 /**
  * Business logic for emails.
  *
  * This class applies the rules of `domain.md`. It knows nothing about HTTP or JSON and does not
- * know how emails are stored; it only uses the [EmailRepository].
+ * know how emails are stored; it only uses the repository layer.
  *
  * @property emailRepository storage for emails
+ * @property attachmentFileStore storage for attachment files, needed to delete them with the email
  */
 @Service
-class EmailService(private val emailRepository: EmailRepository) {
+class EmailService(
+    private val emailRepository: EmailRepository,
+    private val attachmentFileStore: AttachmentFileStore,
+) {
 
     private val log = LoggerFactory.getLogger(EmailService::class.java)
 
@@ -27,7 +30,7 @@ class EmailService(private val emailRepository: EmailRepository) {
      * @return the stored email
      */
     fun create(message: EmailMessage): Email {
-        val now = now()
+        val now = currentTime()
         val email = Email(
             id = UUID.randomUUID(),
             message = message,
@@ -68,6 +71,7 @@ class EmailService(private val emailRepository: EmailRepository) {
 
     /**
      * Replaces the writable part of an email and sets `updatedAt` to the current time.
+     * The attachments stay unchanged.
      *
      * @param id identifier of the email
      * @param message new writable part of the email
@@ -82,7 +86,7 @@ class EmailService(private val emailRepository: EmailRepository) {
         }
         val updated = email.copy(
             message = message,
-            metadata = email.metadata.copy(updatedAt = now()),
+            metadata = email.metadata.copy(updatedAt = currentTime()),
         )
         emailRepository.save(updated)
         log.info("Updated email {}", id)
@@ -90,18 +94,16 @@ class EmailService(private val emailRepository: EmailRepository) {
     }
 
     /**
-     * Deletes an email permanently, regardless of its status.
+     * Deletes an email permanently together with all its attachment files (rule F6),
+     * regardless of its status.
      *
      * @param id identifier of the email
      * @throws EmailNotFoundException if the email does not exist
      */
     fun delete(id: UUID) {
-        if (!emailRepository.existsById(id)) {
-            throw EmailNotFoundException(id)
-        }
+        val email = get(id)
+        email.attachments.forEach { attachmentFileStore.delete(it.id) }
         emailRepository.deleteById(id)
-        log.info("Deleted email {}", id)
+        log.info("Deleted email {} with {} attachment(s)", id, email.attachments.size)
     }
-
-    private fun now(): OffsetDateTime = OffsetDateTime.now().truncatedTo(ChronoUnit.SECONDS)
 }

@@ -30,11 +30,7 @@ fun EmailCreate.toMessage(defaultFrom: String): EmailMessage =
         content = content,
     )
 
-/**
- * Converts a domain email into the detailed API representation.
- *
- * Attachments are not implemented yet, so the list is always empty.
- */
+/** Converts a domain email into the detailed API representation, including attachment metadata. */
 fun Email.toDetail(): EmailDetail =
     EmailDetail(
         id = id,
@@ -50,14 +46,10 @@ fun Email.toDetail(): EmailDetail =
         createdAt = metadata.createdAt,
         updatedAt = metadata.updatedAt,
         sentAt = metadata.sentAt,
-        attachments = emptyList(),
+        attachments = attachments.map { it.toMetadata() },
     )
 
-/**
- * Converts a domain email into the short API representation for lists.
- *
- * Attachments are not implemented yet, so the count is always `0`.
- */
+/** Converts a domain email into the short API representation for lists. */
 fun Email.toSummary(): EmailSummary =
     EmailSummary(
         id = id,
@@ -68,7 +60,7 @@ fun Email.toSummary(): EmailSummary =
         createdAt = metadata.createdAt,
         updatedAt = metadata.updatedAt,
         sentAt = metadata.sentAt,
-        attachmentCount = 0,
+        attachmentCount = attachments.size,
     )
 
 /** Converts a page of domain emails into the API page representation. */
