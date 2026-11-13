@@ -22,4 +22,13 @@ data class EmailMessage(
     val replyTo: List<String>,
     val subject: String,
     val content: String,
-)
+) {
+    /** Number of addresses in `to`, `cc`, and `bcc` together. */
+    val recipientCount: Int
+        get() = to.size + cc.size + bcc.size
+
+    companion object {
+        /** `to`, `cc`, and `bcc` together have at most 100 addresses (rule E2). */
+        const val MAX_RECIPIENTS = 100
+    }
+}

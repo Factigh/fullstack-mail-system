@@ -100,7 +100,7 @@ workspace "Mail System" "Three-tier web mail system with layered Angular client 
         emailService -> attachmentFileStore "Deletes attachment files with the email"
         attachmentService -> attachmentFileStore "Reads and writes binaries"
         attachmentService -> emailRepository "Reads and writes emails and their attachment metadata"
-        transmissionService -> emailRepository "Reads emails and updates status"
+        transmissionService -> emailRepository "Reads emails, updates their status, and records send attempts"
         transmissionService -> mailGateway "Sends through"
         userRepository -> database "Reads and writes" "JDBC"
         emailRepository -> database "Reads and writes" "JDBC"

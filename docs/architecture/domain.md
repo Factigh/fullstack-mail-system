@@ -13,6 +13,8 @@ This document describes the business domain of the email management system: doma
 | `EmailAddress` | A syntactically valid email address. |
 | `EmailStatus` | Enum: `DRAFT`, `SENT`, `ERROR`. |
 | `EmailSource` | Enum: `EXTERN` (received), `INTERN` (sent from this system). |
+| `Transmission` | One attempt to send an email, with its outcome. An email can have several attempts. |
+| `TransmissionOutcome` | Enum: `SUCCEEDED`, `FAILED`. |
 
 Addition to the original description: every `Email` belongs to one `User` (its owner), because users must only see their own emails.
 
@@ -58,11 +60,23 @@ classDiagram
         EXTERN
         INTERN
     }
+    class Transmission {
+        +TransmissionOutcome outcome
+        +LocalDateTime attemptedAt
+        +String failureReason
+    }
+    class TransmissionOutcome {
+        <<enumeration>>
+        SUCCEEDED
+        FAILED
+    }
     User "1" --> "0..*" Email : owns
     Email "1" *-- "1" EmailMetadata : has
     Email "1" *-- "0..*" Attachment : has
+    Email "1" *-- "0..*" Transmission : has
     EmailMetadata --> EmailStatus
     EmailMetadata --> EmailSource
+    Transmission --> TransmissionOutcome
 ```
 
 ## 3. Property Types
@@ -103,6 +117,13 @@ classDiagram
 | size | Long | yes | size in bytes, taken from the upload |
 | (binary content) | bytes | yes | the file itself |
 
+### Transmission (read-only, controlled by the server)
+| Property | Type | Required | Notes |
+|---|---|---|---|
+| outcome | TransmissionOutcome | yes | |
+| attemptedAt | LocalDateTime | yes | |
+| failureReason | String? | no | set if and only if the outcome is `FAILED` |
+
 ## 4. Business Rules
 
 ### EmailAddress
@@ -130,6 +151,11 @@ classDiagram
 - **F5** An attachment is never updated, only created, read, or deleted.
 - **F6** Deleting an email deletes all its attachments.
 
+### Transmission
+- **T1** `failureReason` is set if and only if `outcome` is `FAILED`.
+- **T2** Only an email with the source `INTERN` and the status `DRAFT` or `ERROR` can be sent. A rejected request records no transmission and changes nothing.
+- **T3** A successful attempt sets the status to `SENT` and `sentAt` to the time of the attempt. A failed attempt sets the status to `ERROR`.
+
 ### User
 - **U1** `firstName` and `lastName` have 1 to 100 characters each.
 - **U2** `email` is a valid `EmailAddress` and unique.
@@ -149,4 +175,5 @@ stateDiagram-v2
 ```
 
 - A `DRAFT` or `ERROR` email can be edited and sent.
+- Every send attempt is recorded as a `Transmission` (rules T1 to T3).
 - A `SENT` email never changes again (rule E6).

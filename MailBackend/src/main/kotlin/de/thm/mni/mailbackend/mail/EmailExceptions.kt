@@ -21,6 +21,29 @@ class EmailNotFoundException(id: UUID) : NotFoundException("The email $id does n
 class EmailReadOnlyException(id: UUID) : ConflictException("The email $id was already sent and is read-only.")
 
 /**
+ * Thrown when a received email should be sent. Only emails written in this system can be sent.
+ *
+ * @param id identifier of the email
+ */
+class EmailNotSendableException(id: UUID) :
+    ConflictException("The email $id was received from outside and cannot be sent.")
+
+/**
+ * Thrown when the writable data of an email breaks a business rule that the request validation
+ * cannot check, for example the total number of recipients (rule E2).
+ *
+ * @param message description of the broken rule
+ */
+class EmailRuleViolationException(message: String) : RuleViolationException(message)
+
+/**
+ * Thrown when a send attempt does not exist or does not belong to the given email.
+ *
+ * @param id identifier of the requested send attempt
+ */
+class TransmissionNotFoundException(id: UUID) : NotFoundException("The transmission $id does not exist.")
+
+/**
  * Thrown when an attachment does not exist or does not belong to the given email.
  *
  * @param id identifier of the requested attachment

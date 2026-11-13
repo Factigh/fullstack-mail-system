@@ -28,8 +28,10 @@ class EmailService(
      *
      * @param message writable part of the new email
      * @return the stored email
+     * @throws EmailRuleViolationException if the email has too many recipients (rule E2)
      */
     fun create(message: EmailMessage): Email {
+        checkRecipientLimit(message)
         val now = currentTime()
         val email = Email(
             id = UUID.randomUUID(),
@@ -78,12 +80,14 @@ class EmailService(
      * @return the updated email
      * @throws EmailNotFoundException if the email does not exist
      * @throws EmailReadOnlyException if the email was already sent (rule E6)
+     * @throws EmailRuleViolationException if the email has too many recipients (rule E2)
      */
     fun update(id: UUID, message: EmailMessage): Email {
         val email = get(id)
         if (email.isReadOnly) {
             throw EmailReadOnlyException(id)
         }
+        checkRecipientLimit(message)
         val updated = email.copy(
             message = message,
             metadata = email.metadata.copy(updatedAt = currentTime()),
@@ -105,5 +109,13 @@ class EmailService(
         email.attachments.forEach { attachmentFileStore.delete(it.id) }
         emailRepository.deleteById(id)
         log.info("Deleted email {} with {} attachment(s)", id, email.attachments.size)
+    }
+
+    private fun checkRecipientLimit(message: EmailMessage) {
+        if (message.recipientCount > EmailMessage.MAX_RECIPIENTS) {
+            throw EmailRuleViolationException(
+                "to, cc, and bcc together have at most ${EmailMessage.MAX_RECIPIENTS} addresses.",
+            )
+        }
     }
 }
